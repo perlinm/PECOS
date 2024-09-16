@@ -40,7 +40,8 @@ class Steane(Vars):
         self.c = CReg(f"{name}_c", 32)
 
         if self.a.size < 3:
-            raise ValueError(f"Steane ancilla registers must have >= 3 qubits (provided: {self.a.size})")
+            msg = f"Steane ancilla registers must have >= 3 qubits (provided: {self.a.size})"
+            raise ValueError(msg)
 
         # TODO: Make it so I can put these in self.c... need to convert things like if(c) and c = a ^ b, a = 0;
         #  to allow lists of bits
@@ -62,26 +63,31 @@ class Steane(Vars):
 
         self.vars = [
             self.d,
-            self.c,
-            self.syn_meas,
-            self.last_raw_syn_x,
-            self.last_raw_syn_z,
-            self.scratch,
-            self.flag_x,
-            self.flag_z,
-            self.flags,
-            self.raw_meas,
-            self.syn_x,
-            self.syn_z,
-            self.syndromes,
-            self.verify_prep,
         ]
+
         if ancillas is None:
             self.vars.append(self.a)
 
+        self.vars.extend(
+            [
+                self.c,
+                self.syn_meas,
+                self.last_raw_syn_x,
+                self.last_raw_syn_z,
+                self.scratch,
+                self.flag_x,
+                self.flag_z,
+                self.flags,
+                self.raw_meas,
+                self.syn_x,
+                self.syn_z,
+                self.syndromes,
+                self.verify_prep,
+            ],
+        )
+
         # derived classical registers
         c = self.c
-        self.c_init = c[0]
         self.log_raw = c[1]
         self.log = c[2]
         self.pf_x = c[3]
@@ -98,7 +104,7 @@ class Steane(Vars):
 
         match state:
             case "+X" | "X":
-                return self.pz(rus_limit=rus_limit)
+                return self.px(rus_limit=rus_limit)
             case "-X":
                 return self.pnx(rus_limit=rus_limit)
             case "+Y" | "Y":
@@ -182,7 +188,7 @@ class Steane(Vars):
         return PrepRUS(
             q=self.d,
             a=self.a[0],
-            init=self.c_init,
+            init=self.verify_prep[0],
             limit=rus_limit,
             state="+Z",
             first_round_reset=True,
@@ -197,7 +203,7 @@ class Steane(Vars):
         return PrepRUS(
             q=self.d,
             a=self.a[0],
-            init=self.c_init,
+            init=self.verify_prep[0],
             limit=rus_limit,
             state="-Z",
             first_round_reset=True,
@@ -324,7 +330,7 @@ class Steane(Vars):
             aux.prep_tdg_plus_state(reject=reject, rus_limit=rus_limit),
             self.cx(aux),
             aux.mz(self.tdg_meas),
-            If(self.t_meas == 1).Then(self.szdg()),  # SZdg/Sdg correction.
+            If(self.tdg_meas == 1).Then(self.szdg()),  # SZdg/Sdg correction.
         )
 
         if reject is not None:
