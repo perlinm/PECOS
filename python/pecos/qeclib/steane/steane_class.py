@@ -512,7 +512,7 @@ class Steane(Vars):
             block.extend(log.set(self.log))
         return block
 
-    def qec(self):
+    def qec(self, error_flag: Bit | None = None):
         return ParallelFlagQECActiveCorrection(
             q=self.d,
             a=self.a,
@@ -527,4 +527,5 @@ class Steane(Vars):
             pf_x=self.pf_x,
             pf_z=self.pf_z,
             scratch=self.scratch,
+            error_flag=error_flag,
         )
