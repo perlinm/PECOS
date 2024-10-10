@@ -42,7 +42,6 @@ class PrepHStateFT(Block):
         last_raw_syn_x: CReg,
         last_raw_syn_z: CReg,
         *,
-        flag: Bit | None = None,
         condition_qed: bool = True,
     ):
         super().__init__()
@@ -84,8 +83,6 @@ class PrepHStateFT(Block):
                 ThreeParallelFlaggingZXX(d, a, flag_x, flag_z, flags, last_raw_syn_x, last_raw_syn_z),
             )
 
-        if flag is not None:
-            self.extend(If(flags != 0).Then(flag.set(1)))
         self.extend(
             reject.set(out[0] | out[1] | flags[0] | flags[1] | flags[2]),
             # Reject on the results of the `reject` bit. 0 is good. 1 means the prep failed.
@@ -116,21 +113,9 @@ class PrepHStateFTRUS(Block):
         last_raw_syn_x: CReg,
         last_raw_syn_z: CReg,
         limit: int,
-        flag: Bit | None = None,
     ):
         super().__init__(
-            PrepHStateFT(
-                d,
-                a,
-                out,
-                reject,
-                flag_x,
-                flag_z,
-                flags,
-                last_raw_syn_x,
-                last_raw_syn_z,
-                flag=flag,
-            ),
+            PrepHStateFT(d, a, out, reject, flag_x, flag_z, flags, last_raw_syn_x, last_raw_syn_z),
             Repeat(limit - 1).block(
                 If(reject != 0).Then(
                     PrepHStateFT(
@@ -143,7 +128,6 @@ class PrepHStateFTRUS(Block):
                         flags,
                         last_raw_syn_x,
                         last_raw_syn_z,
-                        flag=flag,
                         condition_qed=False,
                     ),
                 ),
