@@ -97,9 +97,10 @@ class PrepEncodeTPlusFTRUS(Block):
         last_raw_syn_x: CReg,
         last_raw_syn_z: CReg,
         limit: int,
+        flag: Bit | None = None,
     ):
         # NOTE: For QASM, have to avoid nested If statements
         super().__init__(
-            PrepHStateFTRUS(d, a, out, reject, flag_x, flag_z, flags, last_raw_syn_x, last_raw_syn_z, limit),
+            PrepHStateFTRUS(d, a, out, reject, flag_x, flag_z, flags, last_raw_syn_x, last_raw_syn_z, limit, flag),
             F(d),
         )
