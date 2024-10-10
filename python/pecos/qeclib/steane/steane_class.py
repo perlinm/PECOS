@@ -97,26 +97,26 @@ class Steane(Vars):
 
         self.default_rus_limit = default_rus_limit
 
-    def p(self, state: str, rus_limit: int | None = None):
+    def p(self, state: str, reject: Bit | None = None, rus_limit: int | None = None):
         """Prepare a logical qubit in a logical Pauli basis state."""
         match state:
             case "+X" | "X":
-                return self.px(rus_limit=rus_limit)
+                return self.px(reject=reject, rus_limit=rus_limit)
             case "-X":
-                return self.pnx(rus_limit=rus_limit)
+                return self.pnx(reject=reject, rus_limit=rus_limit)
             case "+Y" | "Y":
-                return self.py(rus_limit=rus_limit)
+                return self.py(reject=reject, rus_limit=rus_limit)
             case "-Y":
-                return self.pny(rus_limit=rus_limit)
+                return self.pny(reject=reject, rus_limit=rus_limit)
             case "+Z" | "Z":
-                return self.pz(rus_limit=rus_limit)
+                return self.pz(reject=reject, rus_limit=rus_limit)
             case "-Z":
-                return self.pnz(rus_limit=rus_limit)
+                return self.pnz(reject=reject, rus_limit=rus_limit)
             case _:
                 msg = f"State {state} is not implemented!"
                 raise NotImplementedError(msg)
 
-    def px(self, rus_limit: int | None = None):
+    def px(self, reject: Bit | None = None, rus_limit: int | None = None):
         """Prepare logical |+X>, a.k.a. |+>"""
         return PrepRUS(
             q=self.d,
@@ -124,10 +124,11 @@ class Steane(Vars):
             init=self.verify_prep[0],
             limit=rus_limit or self.default_rus_limit,
             state="+X",
+            reject=reject or self.scratch[2],
             first_round_reset=True,
         )
 
-    def pnx(self, rus_limit: int | None = None):
+    def pnx(self, reject: Bit | None = None, rus_limit: int | None = None):
         """Prepare logical |-X>, a.k.a. |->"""
         return PrepRUS(
             q=self.d,
@@ -135,10 +136,11 @@ class Steane(Vars):
             init=self.verify_prep[0],
             limit=rus_limit or self.default_rus_limit,
             state="-X",
+            reject=reject or self.scratch[2],
             first_round_reset=True,
         )
 
-    def py(self, rus_limit: int | None = None):
+    def py(self, reject: Bit | None = None, rus_limit: int | None = None):
         """Prepare logical |+Y>, a.k.a. |+i>"""
         return PrepRUS(
             q=self.d,
@@ -146,10 +148,11 @@ class Steane(Vars):
             init=self.verify_prep[0],
             limit=rus_limit or self.default_rus_limit,
             state="+Y",
+            reject=reject or self.scratch[2],
             first_round_reset=True,
         )
 
-    def pny(self, rus_limit: int | None = None):
+    def pny(self, reject: Bit | None = None, rus_limit: int | None = None):
         """Prepare logical |-Y>, a.k.a. |-i>"""
         return PrepRUS(
             q=self.d,
@@ -157,10 +160,11 @@ class Steane(Vars):
             init=self.verify_prep[0],
             limit=rus_limit or self.default_rus_limit,
             state="-Y",
+            reject=reject or self.scratch[2],
             first_round_reset=True,
         )
 
-    def pz(self, rus_limit: int | None = None):
+    def pz(self, reject: Bit | None = None, rus_limit: int | None = None):
         """Prepare logical |+Z>, a.k.a. |0>"""
         return PrepRUS(
             q=self.d,
@@ -168,10 +172,11 @@ class Steane(Vars):
             init=self.verify_prep[0],
             limit=rus_limit or self.default_rus_limit,
             state="+Z",
+            reject=reject or self.scratch[2],
             first_round_reset=True,
         )
 
-    def pnz(self, rus_limit: int | None = None):
+    def pnz(self, reject: Bit | None = None, rus_limit: int | None = None):
         """Prepare logical |-Z>, a.k.a. |1>"""
         return PrepRUS(
             q=self.d,
@@ -179,6 +184,7 @@ class Steane(Vars):
             init=self.verify_prep[0],
             limit=rus_limit or self.default_rus_limit,
             state="-Z",
+            reject=reject or self.scratch[2],
             first_round_reset=True,
         )
 
