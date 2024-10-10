@@ -84,8 +84,9 @@ class PrepHStateFT(Block):
                 ThreeParallelFlaggingZXX(d, a, flag_x, flag_z, flags, last_raw_syn_x, last_raw_syn_z),
             )
 
+        if flag is not None:
+            self.extend(If(flags != 0).Then(flag.set(1)))
         self.extend(
-            If(flags != 0).Then(flag.set(1)),
             reject.set(out[0] | out[1] | flags[0] | flags[1] | flags[2]),
             # Reject on the results of the `reject` bit. 0 is good. 1 means the prep failed.
         )
