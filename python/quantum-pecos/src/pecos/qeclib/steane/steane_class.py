@@ -286,7 +286,7 @@ class Steane(Vars):
             aux.cx(self),
             self.mz(self.t_meas),
             If(self.t_meas == 1).Then(aux.x(), aux.sz()),
-            Permute(self.d, aux.d),
+            self.permute(aux),
         )
 
     def t_tel(
@@ -309,7 +309,7 @@ class Steane(Vars):
             aux.cx(self),
             self.mz(self.t_meas),
             If(self.t_meas == 1).Then(aux.x(), aux.sz()),  # SZ/S correction.
-            Permute(self.d, aux.d),
+            self.permute(aux),
         )
 
     def nonft_tdg_tel(self, aux: Steane):
@@ -327,7 +327,7 @@ class Steane(Vars):
             aux.cx(self),
             self.mz(self.tdg_meas),
             If(self.tdg_meas == 1).Then(aux.x(), aux.szdg()),
-            Permute(self.d, aux.d),
+            self.permute(aux),
         )
 
     def tdg_tel(
@@ -350,7 +350,7 @@ class Steane(Vars):
             aux.cx(self),
             self.mz(self.tdg_meas),
             If(self.t_meas == 1).Then(aux.x(), aux.szdg()),  # SZdg/Sdg correction.
-            Permute(self.d, aux.d),
+            self.permute(aux),
         )
 
     def t_cor(
@@ -643,4 +643,19 @@ class Steane(Vars):
         )
         if flag is not None:
             block.extend(If(self.syn_meas != 0).Then(flag.set(1)))
+        return block
+
+    def permute(self, other: Steane):
+        """Permute this code block (including both quantum and classical registers) with another."""
+        block = Block(
+            Permute(self.d, other.d),
+            Permute(self.a, other.a),
+        )
+        for var_a, var_b in zip(self.vars, other.vars):
+            if isinstance(var_a, CReg):
+                block.extend(
+                    var_a.set(var_a ^ var_b),
+                    var_b.set(var_b ^ var_a),
+                    var_a.set(var_a ^ var_b),
+                )
         return block
