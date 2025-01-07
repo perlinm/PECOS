@@ -83,6 +83,8 @@ one_qubits = {
     "F",
     "Fdg",
     "R1XY",
+    "RY",
+    "RX"
 }
 
 zbasis_rotations = {"Z", "S", "Sd", "SqrtZ", "SqrtZd", "RZ", "SZ", "SZdg"}
