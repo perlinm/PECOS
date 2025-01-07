@@ -9,7 +9,9 @@
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 
-from pecos.qeclib.qubit import CH, CX, CY, CZ, H, Measure, Prep
+import numpy as np
+
+from pecos.qeclib.qubit import CX, CY, CZ, RY, H, Measure, Prep
 from pecos.slr import Barrier, Bit, Block, Comment, Qubit
 
 
@@ -47,7 +49,7 @@ class Check1Flag(Block):
             Prep(a, flag),
             H(a),
             Barrier(a, d[0]),
-            self.cu(ops[0], a, d[0]),
+            *self.cu(ops[0], a, d[0]),
             Barrier(a, flag),
             CX(a, flag),
             Barrier(a, flag),
@@ -55,7 +57,7 @@ class Check1Flag(Block):
 
         for i in range(1, n - 1):
             self.extend(
-                self.cu(ops[i], a, d[i]),
+                *self.cu(ops[i], a, d[i]),
                 Barrier(a, d[i]),  # To preserve order
             )
 
@@ -63,7 +65,7 @@ class Check1Flag(Block):
             Barrier(a, flag),
             CX(a, flag),
             Barrier(a, flag),
-            self.cu(ops[-1], a, d[-1]),
+            *self.cu(ops[-1], a, d[-1]),
             Barrier(a, d[-1]),
             H(a),
             Measure(a) > out,
@@ -73,13 +75,17 @@ class Check1Flag(Block):
     @staticmethod
     def cu(u, a, d):
         if u == "X":
-            return CX(a, d)
+            return [CX(a, d)]
         elif u == "Y":
-            return CY(a, d)
+            return [CY(a, d)]
         elif u == "Z":
-            return CZ(a, d)
+            return [CZ(a, d)]
         elif u == "H":
-            return CH(a, d)
+            return [
+                RY[-np.pi / 4](d),
+                CZ(a, d),
+                RY[np.pi / 4](d),
+            ]
         else:
             msg = f"Symbol '{u}' not supported!"
             raise Exception(msg)
