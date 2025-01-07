@@ -203,7 +203,7 @@ class PHIRClassicalInterpreter(ClassicalInterpreter):
         return self.cenv[cid]
 
     def get_bit(self, cvar, idx):
-        val = self.get_cval(cvar) & (1 << idx)
+        val = int(self.get_cval(cvar)) & (1 << idx)
         val >>= idx
         return val
 
@@ -227,7 +227,6 @@ class PHIRClassicalInterpreter(ClassicalInterpreter):
                 else:
                     lhs, rhs = args
                     rhs = self.eval_expr(rhs)
-
                 lhs = self.eval_expr(lhs)
                 dtype = type(lhs)
 
