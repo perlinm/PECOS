@@ -115,6 +115,97 @@ class PrepHStateFT(Block):
             # Reject on the results of the `reject` bit. 0 is good. 1 means the prep failed.
         )
 
+class PrepHStateFT_8cnot(Block):
+    """
+    Prepare a |+H> state fault tolerantly by using an encoding circuit to prepare logical|+H>, measuring the logical
+    Hadamard with a flag, doing a QED round, and post-selecting based on non-trivial measurements.
+
+    Arguments:
+        d: Data qubits (size 7)
+        a: Axillary qubits (size 2)
+        out: Measurement outputs (size 2). out[0] is the Measure H result and out[1] is the flag result.
+        reject: Whether the procedure failed and should be rejected. 0 it is good, 1 prep failed.
+    """
+
+    def __init__(
+        self,
+        d: QReg,
+        a: QReg,
+        out: CReg,
+        reject: Bit,
+        flag_x: CReg,
+        flag_z: CReg,
+        flags: CReg,
+        last_raw_syn_x: CReg,
+        last_raw_syn_z: CReg,
+        *,
+        condition_qed: bool = True,
+    ):
+        super().__init__()
+
+        # non-fault-tolerantly encode logical |+H>
+        # ----------------------------------------
+        self.extend(
+            Comment('\n Start Non-FT encoding a |H> state with 8 cx'),
+            qubit.Prep(d[0],d[1],d[2],d[3],d[4],d[5],d[6]),
+            qubit.H(d[0],
+                    d[4],
+                    d[6]),
+            qubit.CX(
+                (d[0],d[1]),
+                (d[4],d[5]),
+                (d[6],d[3]),
+                (d[6],d[5]),
+                (d[4],d[2]),
+                (d[0],d[3]),
+                (d[4],d[1]),
+            ),
+            ####### 
+            # ''' qubit.RXX[pi/4](d[3],d[4]) '''
+            qubit.H(d[3]),
+            qubit.H(d[4]),
+            qubit.RZZ[pi/4](d[3],d[4]),
+            qubit.H(d[3]),
+            qubit.H(d[4]), 
+            #########
+            qubit.CX(d[3],d[2]),
+            qubit.SZdg(d[0],d[1],d[2],d[3],d[4],d[5],d[6]),
+            Comment('\n End Non-FT encoding a |H> state with 8 cx'),
+        )
+        
+        # flagged logical H measurement
+        # -----------------------------
+        self.extend(
+            Check1Flag(
+                d=[d[0], d[1], d[2], d[3], d[4], d[5], d[6]],
+                ops="HHHHHHH",
+                a=a[0],
+                flag=a[1],
+                out=out[0],
+                out_flag=out[1],
+            ),
+        )
+
+        # QED
+        self.extend(
+            ThreeParallelFlaggingXZZ(d, a, flag_x, flag_z, flags, last_raw_syn_x, last_raw_syn_z),
+        )
+
+        if condition_qed:
+            self.extend(
+                If(flags == 0).Then(
+                    ThreeParallelFlaggingZXX(d, a, flag_x, flag_z, flags, last_raw_syn_x, last_raw_syn_z),
+                ),
+            )
+        else:
+            self.extend(
+                ThreeParallelFlaggingZXX(d, a, flag_x, flag_z, flags, last_raw_syn_x, last_raw_syn_z),
+            )
+
+        self.extend(
+            reject.set(out[0] | out[1] | flags[0] | flags[1] | flags[2]),
+            # Reject on the results of the `reject` bit. 0 is good. 1 means the prep failed.
+        )
 
 class PrepHStateFTRUS(Block):
     """
@@ -142,7 +233,7 @@ class PrepHStateFTRUS(Block):
         limit: int,
     ):
         super().__init__(
-            PrepHStateFT(
+            PrepHStateFT_8cnot(
                 d,
                 a,
                 out,
@@ -155,7 +246,7 @@ class PrepHStateFTRUS(Block):
             ),
             Repeat(limit - 1).block(
                 If(reject != 0).Then(
-                    PrepHStateFT(
+                    PrepHStateFT_8cnot(
                         d,
                         a,
                         out,
