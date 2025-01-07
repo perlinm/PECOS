@@ -164,7 +164,10 @@ class PrepHStateFT_8cnot(Block):
             # ''' qubit.RXX[pi/4](d[3],d[4]) '''
             qubit.H(d[3]),
             qubit.H(d[4]),
-            qubit.RZZ[pi/4](d[3],d[4]),
+            # qubit.RZZ[pi/4](d[3],d[4]),
+            qubit.CX(d[3],d[4]),
+            qubit.RZ(pi/4,d[4]),
+            qubit.CX(d[3],d[4]),
             qubit.H(d[3]),
             qubit.H(d[4]), 
             #########
