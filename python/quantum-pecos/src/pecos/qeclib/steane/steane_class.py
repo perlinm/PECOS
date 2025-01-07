@@ -28,7 +28,7 @@ from pecos.qeclib.steane.preps.t_plus_state import (
     PrepEncodeTPlusNonFT,
 )
 from pecos.qeclib.steane.qec.qec_3parallel import ParallelFlagQECActiveCorrection
-from pecos.slr import Block, CReg, If, Permute, QReg, Vars
+from pecos.slr import Block, CReg, If, Permute, QReg, Vars, Comment
 
 if TYPE_CHECKING:
     from pecos.slr import Bit
@@ -178,6 +178,38 @@ class Steane(Vars):
         if reject is not None:
             block.extend(reject.set(self.scratch[2]))
         return block
+    
+    def prep_twirled_t_plus_state(
+        self,
+        reject: Bit | None = None,
+        rus_limit: int | None = None,
+    ):
+        import numpy as np
+        """Prepare logical T|+X> in a fault tolerant manner."""
+        block = Block(
+            self.scratch.set(0),
+            PrepEncodeTPlusFTRUS(
+                d=self.d,
+                a=self.a,
+                out=self.scratch,
+                reject=self.scratch[2],  # the first two bits are used by "out"
+                flag_x=self.flag_x,
+                flag_z=self.flag_z,
+                flags=self.flags,
+                last_raw_syn_x=self.last_raw_syn_x,
+                last_raw_syn_z=self.last_raw_syn_z,
+                limit=rus_limit or self.default_rus_limit,
+            ),
+        )
+        random_number = np.random.rand()
+        if random_number < 0.5:
+            block.extend(Comment("=========== Begin Twirled SX ==========="))
+            block.extend(self.x()) #X gate
+            block.extend(self.sz()) #S gate
+            block.extend(Comment("=========== End Twirled SX ==========="))
+        if reject is not None:
+            block.extend(reject.set(self.scratch[2]))
+        return block
 
     def nonft_prep_tdg_plus_state(self):
         """Prepare logical Tdg|+X> in a non-fault tolerant manner."""
@@ -246,6 +278,7 @@ class Steane(Vars):
         """T gate via teleportation using fault-tolerant initialization of the T|+> state."""
         return Block(
             aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
             self.cx(aux),
             aux.mz(self.t_meas),
             If(self.t_meas == 1).Then(self.sz()),  # SZ/S correction.
@@ -305,7 +338,8 @@ class Steane(Vars):
         """
         warn("Using experimental feature: t_tel", stacklevel=2)
         return Block(
-            aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
             aux.cx(self),
             self.mz(self.t_meas),
             If(self.t_meas == 1).Then(aux.x(), aux.sz()),  # SZ/S correction.
@@ -367,7 +401,8 @@ class Steane(Vars):
         warn("Using experimental feature: t_cor", stacklevel=2)
         block = Block(
             # gate teleportation without logical correction
-            aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
             self.cx(aux),
             aux.mz(self.t_meas),
             # active error correction
