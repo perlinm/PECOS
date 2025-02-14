@@ -12,15 +12,21 @@
 from __future__ import annotations
 
 from pecos import __version__
-from pecos.slr.vars import QReg
+from pecos.slr.gen_codes.generator import Generator
 
 
-class QASMGenerator:
-    def __init__(self, includes: list[str] | None = None, add_versions=True):
+class QASMGenerator(Generator):
+    def __init__(
+        self,
+        includes: list[str] | None = None,
+        skip_headers=False,
+        add_versions=True,
+    ):
         self.output = []
         self.current_scope = None
         self.includes = includes
         self.cond = None
+        self.skip_headers = skip_headers
         self.add_versions = add_versions
 
     def write(self, line):
@@ -33,7 +39,7 @@ class QASMGenerator:
         block_name = type(block).__name__
 
         # self.output.append("# Entering new block")
-        if block_name == "Main":
+        if block_name == "Main" and not self.skip_headers:
             self.write("OPENQASM 2.0;")
             if self.includes:
                 for inc in self.includes:
@@ -305,7 +311,7 @@ class QASMGenerator:
         str_list = []
 
         for q in op.qargs:
-            if isinstance(q, QReg):
+            if type(q).__name__ == "QReg":
                 lines = [f"{repr_str} {qubit};" for qubit in q]
                 str_list.extend(lines)
 

@@ -34,16 +34,17 @@ class CondBlock(Block):
 
 
 class If(CondBlock):
-    def __init__(self, *args, cond=None, then_block=None, else_block=None):
-        super().__init__(*args, cond=cond, ops=then_block)
-        self.else_block = None if else_block is None else self.Else(else_block)
+    def __init__(self, *args, cond=None):
+        super().__init__(*args, cond=cond)
+        self.else_block = None
 
     def Then(self, *args):
         self._extend(*args)
         return self
 
     def Else(self, *args):
-        raise NotImplementedError
+        self.else_block = Block(*args)
+        return self
 
 
 class Repeat(CondBlock):

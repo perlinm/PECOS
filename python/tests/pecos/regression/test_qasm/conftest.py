@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from pecos.slr import SlrConverter
 
 
 @pytest.fixture
@@ -31,7 +32,6 @@ def compare_qasm():
             qasm1 = file.read()
 
         qasm1 = qasm1.strip()
-
         # TODO: Fix this... this is kinda hacky
         if (
             hasattr(block, "qargs")
@@ -42,7 +42,7 @@ def compare_qasm():
         elif hasattr(block, "gen"):
             qasm2 = block.gen("qasm", add_versions=False).strip()
         else:
-            qasm2 = block.qasm(add_versions=False).strip()
+            qasm2 = SlrConverter(block).qasm(add_versions=False).strip()
 
         assert qasm1 == qasm2
 
