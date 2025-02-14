@@ -202,11 +202,11 @@ class Steane(Vars):
             ),
         )
         random_number = np.random.rand()
+        block.extend(Comment("=========== Begin Twirled SX ==========="))
         if random_number < 0.5:
-            block.extend(Comment("=========== Begin Twirled SX ==========="))
             block.extend(self.x()) #X gate
             block.extend(self.sz()) #S gate
-            block.extend(Comment("=========== End Twirled SX ==========="))
+        block.extend(Comment("=========== End Twirled SX ==========="))
         if reject is not None:
             block.extend(reject.set(self.scratch[2]))
         return block
@@ -277,8 +277,8 @@ class Steane(Vars):
     def t(self, aux: Steane, reject: Bit | None = None, rus_limit: int | None = None):
         """T gate via teleportation using fault-tolerant initialization of the T|+> state."""
         return Block(
-            aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
-            # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
+            # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
             self.cx(aux),
             aux.mz(self.t_meas),
             If(self.t_meas == 1).Then(self.sz()),  # SZ/S correction.
