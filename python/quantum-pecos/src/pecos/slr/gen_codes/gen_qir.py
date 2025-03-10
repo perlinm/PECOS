@@ -225,7 +225,7 @@ class QIRGenerator(Generator):
         """Helper function to help setup various types and functions needed
         in the QIR production."""
 
-        self._module = ir.Module(name=__file__)
+        self._module = ir.Module(name=__file__, context=ir.Context())
 
         # store them in a read-only object
         self._types = QIRTypes(self._module)
@@ -275,6 +275,12 @@ class QIRGenerator(Generator):
         creg (slr.vars.CReg): An SLR classical register that should transform into a
         classical register in the QIR.
         """
+
+        if creg.size >= 64:
+            msg = f"Classical registers are limited to storing 64 bits (requested: {creg.size})"
+            raise ValueError(
+                msg,
+            )
 
         self._creg_dict[creg.sym] = (
             self._creg_funcs.create_creg_func.create_call(
