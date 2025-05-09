@@ -166,7 +166,7 @@ class PrepHStateFT_8cnot(Block):
             qubit.H(d[4]),
             # qubit.RZZ[pi/4](d[3],d[4]),
             qubit.CX(d[3],d[4]),
-            qubit.RZ(pi/4,d[4]),
+            qubit.RZ[pi/4](d[4]),
             qubit.CX(d[3],d[4]),
             qubit.H(d[3]),
             qubit.H(d[4]), 
@@ -236,7 +236,8 @@ class PrepHStateFTRUS(Block):
         limit: int,
     ):
         super().__init__(
-            PrepHStateFT_8cnot(
+            # PrepHStateFT_8cnot PrepHStateFT
+            PrepHStateFT(
                 d,
                 a,
                 out,
@@ -249,7 +250,8 @@ class PrepHStateFTRUS(Block):
             ),
             Repeat(limit - 1).block(
                 If(reject != 0).Then(
-                    PrepHStateFT_8cnot(
+                    # PrepHStateFT_8cnot PrepHStateFT
+                    PrepHStateFT(
                         d,
                         a,
                         out,
