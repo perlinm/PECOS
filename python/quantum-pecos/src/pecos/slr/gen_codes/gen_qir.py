@@ -802,7 +802,14 @@ class QIRGenerator(Generator):
         gate_args = []
         if gate.has_parameters:
             gate_args = [ir.Constant(self._types.double_type, param) for param in gate.params]
-        gate_args.extend([self._qarg_to_qubit_ptr(qarg) for qarg in qargs])
+        gate_args.extend(
+            [
+                self._qarg_to_qubit_ptr(qarg)
+                if not isinstance(qarg, tuple)
+                else tuple(self._qarg_to_qubit_ptr(q) for q in qarg)
+                for qarg in qargs
+            ]
+        )
 
         # Create the actual invocation on the builder using the args passed in
         gate_declaration.create_call(self._builder, gate_args, name="")
