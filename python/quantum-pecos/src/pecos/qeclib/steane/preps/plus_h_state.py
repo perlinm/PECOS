@@ -237,7 +237,7 @@ class PrepHStateFTRUS(Block):
     ):
         super().__init__(
             # PrepHStateFT_8cnot PrepHStateFT
-            PrepHStateFT(
+            PrepHStateFT_8cnot(
                 d,
                 a,
                 out,
@@ -251,7 +251,7 @@ class PrepHStateFTRUS(Block):
             Repeat(limit - 1).block(
                 If(reject != 0).Then(
                     # PrepHStateFT_8cnot PrepHStateFT
-                    PrepHStateFT(
+                    PrepHStateFT_8cnot(
                         d,
                         a,
                         out,

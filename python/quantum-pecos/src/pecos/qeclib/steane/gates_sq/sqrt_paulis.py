@@ -11,7 +11,7 @@
 
 from pecos.qeclib import qubit
 from pecos.slr import Block, Comment, QReg
-
+from numpy import pi
 
 class SX(Block):
     """
@@ -138,4 +138,21 @@ class SZdg(Block):
         super().__init__(
             Comment("Logical SZdg"),
             qubit.SZ(q),
+        )
+
+class direct_t(Block):
+    """
+    The direct implementation of a T gate
+    """
+
+    def __init__(self, q: QReg):
+        if len(q.elems) != 7:
+            msg = f"Size of register {len(q.elems)} != 7"
+            raise Exception(msg)
+
+        super().__init__(
+            Comment("Logical direct T"),
+            qubit.RZ[pi/4](q[4]),
+            qubit.RZ[pi/4](q[5]),
+            qubit.RZ[pi/4](q[6]),
         )
