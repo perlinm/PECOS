@@ -155,14 +155,15 @@ class Steane(Vars):
                 q=self.d,
             ),
         )
-        block.extend(Comment("=========== Begin Twirled SX ==========="))
-        block.extend(
-        If(twirl_bit == 0).Then(
-            self.x(), #X gate
-            self.sz() #S gate
-        ),
-        )
-        block.extend(Comment("=========== End Twirled SX ==========="))
+        if twirl_bit is not None:
+            block.extend(Comment("=========== Begin Twirled SX ==========="))
+            block.extend(
+            If(twirl_bit == 0).Then(
+                self.x(), #X gate
+                self.sz() #S gate
+            ),
+            )
+            block.extend(Comment("=========== End Twirled SX ==========="))
         return block
     
     def prep_t_plus_state(
@@ -187,14 +188,15 @@ class Steane(Vars):
                 limit=rus_limit or self.default_rus_limit,
             ),
         )
-        block.extend(Comment("=========== Begin Twirled SX ==========="))
-        block.extend(
-        If(twirl_bit == 0).Then(
-            self.x(), #X gate
-            self.sz() #S gate
-        ),
-        )
-        block.extend(Comment("=========== End Twirled SX ==========="))
+        if twirl_bit is not None:
+            block.extend(Comment("=========== Begin Twirled SX ==========="))
+            block.extend(
+            If(twirl_bit == 0).Then(
+                self.x(), #X gate
+                self.sz() #S gate
+            ),
+            )
+            block.extend(Comment("=========== End Twirled SX ==========="))
         if reject is not None:
             block.extend(reject.set(self.scratch[2]))
         return block
