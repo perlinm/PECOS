@@ -5,7 +5,7 @@ import re
 import pytest
 from pecos.qeclib import qubit as Q
 from pecos.slr import CReg, Main, Permute, QReg, SlrConverter
-
+from pecos.qeclib.steane.steane_class import Steane
 # QASM Tests
 
 
@@ -27,7 +27,6 @@ def test_permutation_consistency_with_multiple_calls():
     qasm1 = SlrConverter(prog).qasm()
     qasm2 = SlrConverter(prog).qasm()
     qasm3 = SlrConverter(prog).qasm()
-
     assert qasm1 == qasm2
     assert qasm2 == qasm3
 
@@ -36,6 +35,28 @@ def test_permutation_consistency_with_multiple_calls():
     assert "x b[1];" in qasm1.lower()
     assert "z a[0];" in qasm1.lower()
     assert "y a[1];" in qasm1.lower()
+
+def test_permutation_with_steane():
+    """Test that multiple calls to qasm() produce the same result."""
+    prog = Main(
+        a := Steane("a"),
+        b := Steane("b"),
+        Permute(
+            a.d,
+            b.d,
+        ),
+        a.h(),  # Should become H b[0];
+        a.x(),  # Should become X b[1];
+        b.z(),  # Should become Z a[0];
+        b.y(),  # Should become Y a[1];
+    )
+
+    qasm1 = SlrConverter(prog).qasm()
+    # Check that the permutation was applied correctly
+    assert "h b_d[0];" in qasm1.lower()
+    assert "x b_d[1];" in qasm1.lower()
+    assert "z a_d[0];" in qasm1.lower()
+    assert "y a_d[1];" in qasm1.lower()
 
 
 def test_quantum_permutation_qasm(quantum_permutation_program):
@@ -450,3 +471,4 @@ def test_rotation_gates_with_permutation():
             assert (
                 int(tdg_calls[0]) == original_b1
             ), f"Tdg gate should be applied to original b[1] (physical qubit {original_b1}), but was applied to physical qubit {tdg_calls[0]}"
+
