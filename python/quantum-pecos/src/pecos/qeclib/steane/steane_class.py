@@ -146,6 +146,7 @@ class Steane(Vars):
     def pnz(self, reject: Bit | None = None, rus_limit: int | None = None):
         """Prepare logical |-Z>, a.k.a. |1>"""
         return self.p("-Z", reject=reject, rus_limit=rus_limit)
+    
 
     def nonft_prep_t_plus_state(self, twirl_bit: CReg | None = None):
         """Prepare logical T|+X> in a non-fault tolerant manner."""
@@ -266,6 +267,10 @@ class Steane(Vars):
     def h(self):
         """Logical Hadamard gate"""
         return H(self.d)
+    
+    def apply_sx(self):
+        """apply stabilizer X"""
+        return paulis.Sx(self.d)
 
     def sx(self):
         """Sqrt of X."""
@@ -307,6 +312,21 @@ class Steane(Vars):
             aux.prep_t_plus_state(reject=reject, twirl_bit=twirl_bit, rus_limit=rus_limit),
             # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
             self.cx(aux),
+            aux.mz(self.t_meas),
+            If(self.t_meas == 1).Then(self.sz()),  # SZ/S correction.
+        )
+    
+    def deform_t(self, aux: Steane, reject: Bit | None = None, twirl_bit: CReg | None = None, rus_limit: int | None = None):
+        """T gate via teleportation using fault-tolerant initialization of the T|+> state."""
+        return Block(
+            Comment('Start TODEFORM'),
+            # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            aux.prep_t_plus_state(reject=reject, twirl_bit=twirl_bit, rus_limit=rus_limit),
+            # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
+            aux.h(),
+            self.cz(aux),
+            aux.h(),
+            Comment('End TODEFORM'),
             aux.mz(self.t_meas),
             If(self.t_meas == 1).Then(self.sz()),  # SZ/S correction.
         )
@@ -357,7 +377,7 @@ class Steane(Vars):
         rus_limit: int | None = None,
     ):
         """Warning:
-            This is experimental.
+            This is experimental.dsxew';[xszdp;
 
         T gate via teleportation using fault-tolerant initialization of the T|+> state.
 
@@ -367,12 +387,15 @@ class Steane(Vars):
         warn("Using experimental feature: t_tel", stacklevel=2)
         return Block(
             # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            # Comment('Start TODEFORM'),
             aux.prep_t_plus_state(reject=reject, twirl_bit=twirl_bit, rus_limit=rus_limit),
             # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
             aux.cx(self),
+            # Comment('End TODEFORM'),
             self.mz(self.t_meas),
             If(self.t_meas == 1).Then(aux.x(), aux.sz()),  # SZ/S correction.
             self.permute(aux),
+            # Permute(self.d, aux.d),  # denoted as qpermute
         )
 
     def nonft_tdg_tel(self, aux: Steane):
@@ -467,11 +490,13 @@ class Steane(Vars):
         """
         warn("Using experimental feature: t_cor", stacklevel=2)
         block = Block(
+            # Comment('Start TODEFORM'),
             # gate teleportation without logical correction
             # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
             aux.prep_t_plus_state(reject=reject, twirl_bit=twirl_bit, rus_limit=rus_limit),
             # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
             self.cx(aux),
+            # Comment('END TODEFORM'),
             aux.mz(self.t_meas),
             # active error correction
             self.syn_z.set(aux.syn_meas),
@@ -493,7 +518,53 @@ class Steane(Vars):
         if flag is not None:
             block.extend(If(self.syn_z != 0).Then(flag.set(1)))
         return block
+    
+    def deform_t_cor(
+        self,
+        aux: Steane,
+        reject: Bit | None = None,
+        flag: Bit | None = None,
+        twirl_bit: CReg | None = None,
+        rus_limit: int | None = None,
+    ):
+        """T gate via teleportation using fault-tolerant initialization of the T|+> state.
 
+        Applies active corrections of errors diagnozed by the measurement for gate teleportation.
+        """
+        warn("Using experimental feature: t_cor", stacklevel=2)
+        block = Block(
+            Comment('Start TODEFORM'),
+            # gate teleportation without logical correction
+            # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            aux.prep_t_plus_state(reject=reject, twirl_bit=twirl_bit, rus_limit=rus_limit),
+            # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
+            aux.h(),
+            self.cz(aux),
+            aux.h(),
+            Comment('END TODEFORM'),
+            
+            aux.mz(self.t_meas),
+            # active error correction
+            self.syn_z.set(aux.syn_meas),
+            self.last_raw_syn_z.set(0),
+            self.pf_x.set(0),
+            FlagLookupQASMActiveCorrectionZ(
+                self.d,
+                self.syn_z,
+                self.syn_z,
+                self.last_raw_syn_z,
+                self.pf_x,
+                self.syn_z,
+                self.syn_z,
+                self.scratch,
+            ),
+            # logical correction
+            If(self.t_meas == 1).Then(self.sz()),
+        )
+        if flag is not None:
+            block.extend(If(self.syn_z != 0).Then(flag.set(1)))
+        return block
+    
     def tdg_cor(
         self,
         aux: Steane,
@@ -768,3 +839,35 @@ class Steane(Vars):
                     var_a.set(var_a ^ var_b),
                 )
         return block
+    
+    def swap_permute(self, other: Steane):
+        from pecos.qeclib import qubit
+        """Permute this code block (including both quantum and classical registers) with another."""
+        block = Block(
+            self.swap(other),
+            # Permute(self.a, other.a),
+        )
+        for a1, a2 in zip(self.a, other.a):
+            block.extend(
+                qubit.CX(
+                    (a1, a2),
+                    (a2, a1),
+                    (a1, a2),
+                ),
+            )
+        for var_a, var_b in zip(self.vars, other.vars):
+            if isinstance(var_a, CReg):
+                block.extend(
+                    var_a.set(var_a ^ var_b),
+                    var_b.set(var_b ^ var_a),
+                    var_a.set(var_a ^ var_b),
+                )
+        return block
+    
+    def swap(self, other: Steane):
+        return Block(
+            self.cx(other),
+            other.cx(self),
+            self.cx(other)
+            )
+    
