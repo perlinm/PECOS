@@ -80,3 +80,23 @@ class Z(Block):
             qubit.Z(q[5]),
             qubit.Z(q[6]),
         )
+
+class Sx(Block):
+    """
+    apply the X stabilizer 
+    """
+    def __init__(self, q: QReg):
+        if len(q.elems) != 7:
+            msg = f"Size of register {len(q.elems)} != 7"
+            raise Exception(msg)
+
+        super().__init__(
+            Comment("Start applying stabilizer X"),
+            # SixUnflaggedSyn indices then minus 1
+            qubit.X(q[2]),
+            qubit.X(q[1]),
+            qubit.X(q[3]),
+            qubit.X(q[0]),
+            Comment("End applying stabilizer X"),
+        )
+    
