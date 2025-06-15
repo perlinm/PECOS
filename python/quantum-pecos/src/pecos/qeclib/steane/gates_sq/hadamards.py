@@ -30,5 +30,12 @@ class H(Block):
 
         super().__init__(
             Comment("Logical H"),
-            qubit.H(q),
+            # qubit.H(q),
+            qubit.H(q[0]),
+            qubit.H(q[1]),
+            qubit.H(q[2]),
+            qubit.H(q[3]),
+            qubit.H(q[4]),
+            qubit.H(q[5]),
+            qubit.H(q[6]),
         )
