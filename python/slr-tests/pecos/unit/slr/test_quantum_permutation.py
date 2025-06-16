@@ -54,10 +54,28 @@ def test_permutation_with_steane():
     qasm1 = SlrConverter(prog).qasm()
     # Check that the permutation was applied correctly
     assert "h b_d[0];" in qasm1.lower()
-    assert "x b_d[1];" in qasm1.lower()
-    assert "z a_d[0];" in qasm1.lower()
-    assert "y a_d[1];" in qasm1.lower()
+    assert "x b_d[4];" in qasm1.lower()
+    assert "z a_d[4];" in qasm1.lower()
+    assert "y a_d[4];" in qasm1.lower()
+    
+    prog = Main(
+        a := Steane("a"),
+        b := Steane("b"),
+        meas := CReg("meas", 2),
+        Permute(
+            a.d,
+            b.d,
+        ),
+        a.mx(meas[0]),
+        b.my(meas[1])
+    )
 
+    qasm2 = SlrConverter(prog).qasm()
+    # Check that the permutation was applied correctly
+    assert "ry(-pi/2) b_d[0];" in qasm2.lower()
+    assert "measure b_d[0] -> a_raw_meas[0];" in qasm2.lower()
+    assert "rx(-pi/2) a_d[0];" in qasm2.lower()
+    assert "measure a_d[0] -> b_raw_meas[0];" in qasm2.lower()
 
 def test_quantum_permutation_qasm(quantum_permutation_program):
     """Test permutation with quantum gates in QASM generation."""

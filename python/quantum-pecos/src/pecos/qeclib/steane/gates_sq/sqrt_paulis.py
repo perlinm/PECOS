@@ -30,7 +30,13 @@ class SX(Block):
 
         super().__init__(
             Comment("Logical SX"),
-            qubit.SXdg(q),
+            qubit.SXdg(q[0]),
+            qubit.SXdg(q[1]),
+            qubit.SXdg(q[2]),
+            qubit.SXdg(q[3]),
+            qubit.SXdg(q[4]),
+            qubit.SXdg(q[5]),
+            qubit.SXdg(q[6]),
         )
 
 
@@ -51,7 +57,14 @@ class SXdg(Block):
 
         super().__init__(
             Comment("Logical SXdg"),
-            qubit.SX(q),
+            # qubit.SX(q),
+            qubit.SX(q[0]),
+            qubit.SX(q[1]),
+            qubit.SX(q[2]),
+            qubit.SX(q[3]),
+            qubit.SX(q[4]),
+            qubit.SX(q[5]),
+            qubit.SX(q[6]),
         )
 
 
@@ -72,7 +85,14 @@ class SY(Block):
 
         super().__init__(
             Comment("Logical SY"),
-            qubit.SY(q),
+            # qubit.SY(q),
+            qubit.SY(q[0]),
+            qubit.SY(q[1]),
+            qubit.SY(q[2]),
+            qubit.SY(q[3]),
+            qubit.SY(q[4]),
+            qubit.SY(q[5]),
+            qubit.SY(q[6]),
         )
 
 
@@ -93,7 +113,14 @@ class SYdg(Block):
 
         super().__init__(
             Comment("Logical SYdg"),
-            qubit.SYdg(q),
+            # qubit.SYdg(q),
+            qubit.SYdg(q[0]),
+            qubit.SYdg(q[1]),
+            qubit.SYdg(q[2]),
+            qubit.SYdg(q[3]),
+            qubit.SYdg(q[4]),
+            qubit.SYdg(q[5]),
+            qubit.SYdg(q[6]),
         )
 
 
@@ -115,7 +142,14 @@ class SZ(Block):
 
         super().__init__(
             Comment("Logical SZ"),
-            qubit.SZdg(q),
+            # qubit.SZdg(q),
+            qubit.SZdg(q[0]),
+            qubit.SZdg(q[1]),
+            qubit.SZdg(q[2]),
+            qubit.SZdg(q[3]),
+            qubit.SZdg(q[4]),
+            qubit.SZdg(q[5]),
+            qubit.SZdg(q[6]),
         )
 
 
@@ -137,7 +171,14 @@ class SZdg(Block):
 
         super().__init__(
             Comment("Logical SZdg"),
-            qubit.SZ(q),
+            # qubit.SZ(q),
+            qubit.SZ(q[0]),
+            qubit.SZ(q[1]),
+            qubit.SZ(q[2]),
+            qubit.SZ(q[3]),
+            qubit.SZ(q[4]),
+            qubit.SZ(q[5]),
+            qubit.SZ(q[6]),
         )
 
 class direct_t(Block):
