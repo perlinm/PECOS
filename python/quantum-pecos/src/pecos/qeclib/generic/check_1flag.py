@@ -1,3 +1,10 @@
+"""Single-flag stabilizer check implementations.
+
+This module provides stabilizer check implementations with single flag
+qubits for fault-tolerant syndrome extraction, enabling detection of
+errors that occur during the measurement process.
+"""
+
 # Copyright 2024 The PECOS Developers
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
@@ -10,12 +17,26 @@
 # specific language governing permissions and limitations under the License.
 
 import numpy as np
+from __future__ import annotations
 
-from pecos.qeclib.qubit import CX, CY, CZ, RY, H, Measure, Prep
-from pecos.slr import Barrier, Bit, Block, Comment, Qubit
+from typing import TYPE_CHECKING
+
+from pecos.qeclib.qubit import CH, CX, CY, CZ, H, Measure, Prep
+from pecos.slr import Barrier, Block, Comment
+
+if TYPE_CHECKING:
+    from pecos.qeclib.qubit.qgate_base import QGate
+    from pecos.slr import Bit, Qubit
+
 
 
 class Check1Flag(Block):
+    """Single-flag stabilizer check operation.
+
+    This class implements a stabilizer check operation with a single flag qubit
+    to detect errors during the syndrome extraction process.
+    """
+
     def __init__(
         self,
         d: list[Qubit],
@@ -24,7 +45,23 @@ class Check1Flag(Block):
         flag: Qubit,
         out: Bit,
         out_flag: Bit,
-    ):
+    ) -> None:
+        """Initialize a stabilizer check measurement with flag qubit.
+
+        Args:
+            d: List of data qubits to check.
+            ops: String of operators (X, Y, Z, or H) to apply to each data qubit.
+                Can be a single character (applied to all qubits) or one character per qubit.
+            a: Ancilla qubit used for the check measurement.
+            flag: Flag qubit used to detect hook errors.
+            out: Classical bit to store the measurement result.
+            out_flag: Classical bit to store the flag measurement result.
+
+        Raises:
+            Exception: If check weight is less than 3.
+            Exception: If number of operators doesn't match number of data qubits.
+            Exception: If invalid operator is specified.
+        """
         super().__init__()
 
         n: int = len(d)
@@ -40,7 +77,7 @@ class Check1Flag(Block):
             raise Exception(msg)
 
         for o in ops:
-            if o not in ["X", "Y", "Z", "H"]:
+            if o not in {"X", "Y", "Z", "H"}:
                 msg = 'Only "X", "Y", "Z", and "H" are accepted.'
                 raise Exception(msg)
 
@@ -73,7 +110,17 @@ class Check1Flag(Block):
         )
 
     @staticmethod
-    def cu(u, a, d):
+    def cu(u: str, a: Qubit, d: Qubit) -> QGate:
+        """Create controlled unitary gate based on string identifier.
+
+        Args:
+            u: Unitary gate identifier ('X', 'Y', 'Z', or 'H').
+            a: Control qubit.
+            d: Target qubit.
+
+        Returns:
+            Corresponding controlled unitary gate.
+        """
         if u == "X":
             return [CX(a, d)]
         elif u == "Y":
@@ -89,3 +136,4 @@ class Check1Flag(Block):
         else:
             msg = f"Symbol '{u}' not supported!"
             raise Exception(msg)
+

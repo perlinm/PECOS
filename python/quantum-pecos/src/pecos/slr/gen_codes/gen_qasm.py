@@ -19,8 +19,9 @@ class QASMGenerator(Generator):
     def __init__(
         self,
         includes: list[str] | None = None,
-        skip_headers=False,
-        add_versions=True,
+        *,
+        skip_headers: bool = False,
+        add_versions: bool = True,
     ):
         self.output = []
         self.current_scope = None
@@ -30,7 +31,7 @@ class QASMGenerator(Generator):
         self.add_versions = add_versions
         self.permutation_map = {}  # Maps (reg_name, index) to (new_reg_name, new_index)
 
-    def write(self, line):
+    def write(self, line) -> None:
         self.output.append(line)
 
     def enter_block(self, block):
@@ -44,7 +45,7 @@ class QASMGenerator(Generator):
             self.write("OPENQASM 2.0;")
             if self.includes:
                 for inc in self.includes:
-                    self.write(f'include "{str(inc)}";')
+                    self.write(f'include "{inc!s}";')
             else:
                 # TODO: dump definitions in for things that are used instead of using includes
                 self.write('include "hqslib1.inc";')
@@ -62,11 +63,11 @@ class QASMGenerator(Generator):
                         self.write(var_def)
         return previous_scope
 
-    def process_var_def(self, var):
+    def process_var_def(self, var) -> str:
         var_type = type(var).__name__
         return f"{var_type.lower()} {var.sym}[{var.size}];"
 
-    def exit_block(self, block):
+    def exit_block(self, block) -> None:
         # self.output.append("# Exiting block")
         pass
 
@@ -121,12 +122,22 @@ class QASMGenerator(Generator):
         self.exit_block(block)
         self.current_scope = previous_scope
 
-    def block_op_loop(self, block):
+    def block_op_loop(self, block) -> None:
         if len(block.ops) == 0:
             self.write("")
         else:
-            # Save the current permutation map
-            saved_permutation_map = self.permutation_map.copy()
+            # Check if this block contains a Permute operation
+            # If so, we don't want to restore the permutation map
+            contains_permute = any(
+                type(op).__name__ == "Permute"
+                for op in block.ops
+                if hasattr(op, "__class__")
+            )
+
+            # Save the current permutation map if needed
+            saved_permutation_map = (
+                None if contains_permute else self.permutation_map.copy()
+            )
 
             for op in block.ops:
                 # TODO: figure out how to identify Block types without using isinstance
@@ -135,8 +146,9 @@ class QASMGenerator(Generator):
                 else:
                     self.write(self.generate_op(op))
 
-            # Restore the permutation map
-            self.permutation_map = saved_permutation_map
+            # Restore the permutation map if we saved it
+            if saved_permutation_map is not None:
+                self.permutation_map = saved_permutation_map
 
     def generate_op(self, op):
         op_name = type(op).__name__
@@ -145,14 +157,32 @@ class QASMGenerator(Generator):
 
         if op_name == "Barrier":
             stat = True
-            if isinstance(op.qregs, list | tuple | set):
-                qubits = []
-                for q in op.qregs:
-                    qubits.append(str(q))
-                qubits = ", ".join(qubits)
-            else:
-                qubits = op.qregs
+            # Process barrier operands
+            barrier_parts = []
+            for qreg in op.qregs:
+                if hasattr(qreg, "sym") and hasattr(qreg, "elems"):  # It's a register
+                    # Check if we need to apply permutation to any qubit in this register
+                    has_permutation = any(
+                        (qreg.sym, i) in self.permutation_map
+                        for i in range(len(qreg.elems))
+                    )
+                    if not has_permutation:
+                        # No permutation, use compact register notation
+                        barrier_parts.append(qreg.sym)
+                    else:
+                        # Has permutation, list individual qubits
+                        barrier_parts.extend(
+                            self.apply_permutation(qubit) for qubit in qreg.elems
+                        )
+                elif hasattr(qreg, "reg") and hasattr(
+                    qreg,
+                    "index",
+                ):  # It's a single qubit
+                    barrier_parts.append(self.apply_permutation(qreg))
+                else:
+                    barrier_parts.append(str(qreg))
 
+            qubits = ", ".join(barrier_parts)
             op_str = f"barrier {qubits};"
         elif op_name == "Comment":
             txt = op.txt.split("\n")
@@ -183,7 +213,10 @@ class QASMGenerator(Generator):
 
                 # Check if registers have the same size
                 if reg_i.size != reg_f.size:
-                    msg = f"Cannot permute registers of different sizes: {reg_i.sym}[{reg_i.size}] and {reg_f.sym}[{reg_f.size}]"
+                    msg = (
+                        f"Cannot permute registers of different sizes: "
+                        f"{reg_i.sym}[{reg_i.size}] and {reg_f.sym}[{reg_f.size}]"
+                    )
                     raise ValueError(msg)
 
                 # Use XOR swap
@@ -196,12 +229,9 @@ class QASMGenerator(Generator):
                 # The operations should still refer to the original registers.
 
                 # Add a comment to describe the permutation
-                if op.comment:
-                    op_str = f"// Permutation: {reg_i.sym} <-> {reg_f.sym}"
-                else:
-                    op_str = ""
-
-                return op_str
+                return (
+                    f"// Permutation: {reg_i.sym} <-> {reg_f.sym}" if op.comment else ""
+                )
 
             # Handle classical bit permutations using a single temporary bit
             if (
@@ -283,7 +313,10 @@ class QASMGenerator(Generator):
 
                 # Check if registers have the same size
                 if reg_i.size != reg_f.size:
-                    msg = f"Cannot permute registers of different sizes: {reg_i.sym}[{reg_i.size}] and {reg_f.sym}[{reg_f.size}]"
+                    msg = (
+                        f"Cannot permute registers of different sizes: "
+                        f"{reg_i.sym}[{reg_i.size}] and {reg_f.sym}[{reg_f.size}]"
+                    )
                     raise ValueError(msg)
 
                 # Create a permutation map for each element in the registers
@@ -296,35 +329,32 @@ class QASMGenerator(Generator):
                 self.permutation_map = self._compose_permutation_maps(new_perm_map)
 
                 # Add a comment to describe the permutation
-                if op.comment:
-                    op_str = f"// Permutation: {reg_i.sym} <-> {reg_f.sym}"
-                else:
-                    op_str = ""
+                return (
+                    f"// Permutation: {reg_i.sym} <-> {reg_f.sym}" if op.comment else ""
+                )
 
-                return op_str
-            else:
-                # Element-wise permutation
-                if hasattr(elems_i, "elems") and hasattr(elems_f, "elems"):
-                    elems_i = elems_i.elems
-                    elems_f = elems_f.elems
+            # Element-wise permutation
+            if hasattr(elems_i, "elems") and hasattr(elems_f, "elems"):
+                elems_i = elems_i.elems
+                elems_f = elems_f.elems
 
-                # Validate that the permutation is valid
-                if len(elems_i) != len(elems_f):
-                    msg = "Number of input and output elements are not the same."
-                    raise Exception(msg)
+            # Validate that the permutation is valid
+            if len(elems_i) != len(elems_f):
+                msg = "Number of input and output elements are not the same."
+                raise Exception(msg)
 
-                if {str(e) for e in elems_i} != {str(e) for e in elems_f}:
-                    msg = "The set of input elements are not the same as the set of output elements"
-                    raise Exception(msg)
+            if {str(e) for e in elems_i} != {str(e) for e in elems_f}:
+                msg = "The set of input elements are not the same as the set of output elements"
+                raise Exception(msg)
 
-                # Create a new permutation map for this permutation
-                new_perm_map = {}
-                for ei, ef in zip(elems_i, elems_f, strict=True):
-                    if hasattr(ei.reg, "sym") and hasattr(ef.reg, "sym"):
-                        # Create a key from the input element's register sym and index
-                        key = (ei.reg.sym, ei.index)
-                        # Map it to the output element's register sym and index
-                        new_perm_map[key] = (ef.reg.sym, ef.index)
+            # Create a new permutation map for this permutation
+            new_perm_map = {}
+            for ei, ef in zip(elems_i, elems_f, strict=True):
+                if hasattr(ei.reg, "sym") and hasattr(ef.reg, "sym"):
+                    # Create a key from the input element's register sym and index
+                    key = (ei.reg.sym, ei.index)
+                    # Map it to the output element's register sym and index
+                    new_perm_map[key] = (ef.reg.sym, ef.index)
 
             # Compose the new permutation with the existing one
             self.permutation_map = self._compose_permutation_maps(new_perm_map)
@@ -347,7 +377,7 @@ class QASMGenerator(Generator):
             stat = True
             op_str = self.process_set(op)
 
-        elif op_name in [
+        elif op_name in {
             "EQUIV",
             "NEQUIV",
             "LT",
@@ -363,19 +393,19 @@ class QASMGenerator(Generator):
             "MINUS",
             "RSHIFT",
             "LSHIFT",
-        ]:
+        }:
             op_str = self.process_general_binary_op(op)
 
-        elif op_name in ["NEG", "NOT"]:
+        elif op_name in {"NEG", "NOT"}:
             op_str = self.process_general_unary_op(op)
 
         elif op_name == "Vars":
             op_str = None
 
-        elif op_name in ["CReg", "QReg"]:
+        elif op_name in {"CReg", "QReg"}:
             op_str = str(op.sym)
 
-        elif op_name in ["Bit", "Qubit"]:
+        elif op_name in {"Bit", "Qubit"}:
             op_str = f"{op.reg.sym}[{op.index}]"
 
         elif isinstance(op, int):
@@ -413,7 +443,11 @@ class QASMGenerator(Generator):
 
                     # Apply permutation to the qubit
                     # For quantum registers, we need to find the actual physical qubit after permutations
-                    if hasattr(qubit, "reg") and hasattr(qubit, "index") and hasattr(qubit.reg, "sym"):
+                    if (
+                        hasattr(qubit, "reg")
+                        and hasattr(qubit, "index")
+                        and hasattr(qubit.reg, "sym")
+                    ):
                         key = (qubit.reg.sym, qubit.index)
                         if key in self.permutation_map:
                             new_reg_sym, new_index = self.permutation_map[key]
@@ -434,7 +468,11 @@ class QASMGenerator(Generator):
                 for q, c in zip(op.qargs, op.cout, strict=True):
                     # Apply permutation to the qubit
                     # For quantum registers, we need to find the actual physical qubit after permutations
-                    if hasattr(q, "reg") and hasattr(q, "index") and hasattr(q.reg, "sym"):
+                    if (
+                        hasattr(q, "reg")
+                        and hasattr(q, "index")
+                        and hasattr(q.reg, "sym")
+                    ):
                         key = (q.reg.sym, q.index)
                         if key in self.permutation_map:
                             new_reg_sym, new_index = self.permutation_map[key]
@@ -501,7 +539,11 @@ class QASMGenerator(Generator):
                     for q, c in zip(op.qargs, op.cout, strict=True):
                         # Apply permutation to the qubit
                         # For quantum registers, we need to find the actual physical qubit after permutations
-                        if hasattr(q, "reg") and hasattr(q, "index") and hasattr(q.reg, "sym"):
+                        if (
+                            hasattr(q, "reg")
+                            and hasattr(q, "index")
+                            and hasattr(q.reg, "sym")
+                        ):
                             key = (q.reg.sym, q.index)
                             if key in self.permutation_map:
                                 new_reg_sym, new_index = self.permutation_map[key]
@@ -597,8 +639,10 @@ class QASMGenerator(Generator):
 
         for q in op.qargs:
             if type(q).__name__ == "QReg":
-                lines = [f"{repr_str} {qubit};" for qubit in q]
-                str_list.extend(lines)
+                # Apply permutation to each qubit in the register
+                for qubit in q:
+                    q_str = self.apply_permutation(qubit)
+                    str_list.append(f"{repr_str} {q_str};")
 
             elif isinstance(q, tuple):
                 if len(q) != op.qsize:
@@ -647,7 +691,9 @@ class QASMGenerator(Generator):
         return "\n".join(str_list)
 
     def process_set(self, op):
-        right_qasm = op.right.qasm() if hasattr(op.right, "qasm") else self.generate_op(op.right)
+        right_qasm = (
+            op.right.qasm() if hasattr(op.right, "qasm") else self.generate_op(op.right)
+        )
         if right_qasm.startswith("(") and right_qasm.endswith(")"):
             right_qasm = right_qasm[1:-1]
 
@@ -658,21 +704,39 @@ class QASMGenerator(Generator):
 
     def process_general_binary_op(self, op):
         # Apply permutation to the left operand if it's a register element
-        if hasattr(op.left, "reg") and hasattr(op.left, "index") and hasattr(op.left.reg, "sym"):
+        if (
+            hasattr(op.left, "reg")
+            and hasattr(op.left, "index")
+            and hasattr(op.left.reg, "sym")
+        ):
             left_qasm = self.apply_permutation(op.left)
         else:
-            left_qasm = op.left.qasm() if hasattr(op.left, "qasm") else self.generate_op(op.left)
+            left_qasm = (
+                op.left.qasm()
+                if hasattr(op.left, "qasm")
+                else self.generate_op(op.left)
+            )
 
         # Apply permutation to the right operand if it's a register element
-        if hasattr(op.right, "reg") and hasattr(op.right, "index") and hasattr(op.right.reg, "sym"):
+        if (
+            hasattr(op.right, "reg")
+            and hasattr(op.right, "index")
+            and hasattr(op.right.reg, "sym")
+        ):
             right_qasm = self.apply_permutation(op.right)
         else:
-            right_qasm = op.right.qasm() if hasattr(op.right, "qasm") else self.generate_op(op.right)
+            right_qasm = (
+                op.right.qasm()
+                if hasattr(op.right, "qasm")
+                else self.generate_op(op.right)
+            )
 
         return f"({left_qasm} {op.symbol} {right_qasm})"
 
     def process_general_unary_op(self, op):
-        right_qasm = op.value.qasm() if hasattr(op.value, "qasm") else self.generate_op(op.vale)
+        right_qasm = (
+            op.value.qasm() if hasattr(op.value, "qasm") else self.generate_op(op.vale)
+        )
         return f"({op.symbol}{right_qasm})"
 
     def get_output(self):
@@ -680,9 +744,7 @@ class QASMGenerator(Generator):
         qasm = qasm.replace("\n//<same_line>", "  //")
 
         # Process register-wide measurements
-        qasm = self.process_register_wide_measurements(qasm)
-
-        return qasm
+        return self.process_register_wide_measurements(qasm)
 
     def process_register_wide_measurements(self, qasm_output):
         """Process register-wide measurements and apply permutations.
@@ -721,10 +783,7 @@ class QASMGenerator(Generator):
                 register_mappings[reg_name] = [(reg_name, i) for i in range(reg_size)]
 
             # Process all permutation comments in order
-            permutation_comments = []
-            for line in lines:
-                if "// Permutation:" in line:
-                    permutation_comments.append(line)
+            permutation_comments = [line for line in lines if "// Permutation:" in line]
 
             # Apply each permutation in order
             for comment in permutation_comments:
@@ -836,8 +895,12 @@ class QASMGenerator(Generator):
                 composed_map[src] = intermediate
 
         # Add new mappings from the new permutation map
-        for src, dst in new_perm_map.items():
-            if src not in self.permutation_map:
-                composed_map[src] = dst
+        composed_map.update(
+            {
+                src: dst
+                for src, dst in new_perm_map.items()
+                if src not in self.permutation_map
+            },
+        )
 
         return composed_map

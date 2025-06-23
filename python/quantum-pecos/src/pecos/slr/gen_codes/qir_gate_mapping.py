@@ -9,9 +9,10 @@
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -29,7 +30,7 @@ class QG:
 
     @classmethod
     def decompose(cls, decomposer: Callable[["QGate"], list["QGate"]]):
-        return cls("", False, decomposer)
+        return cls("", adjoint=False, decomposer=decomposer)
 
 
 class QIRGateMetadata(Enum):
@@ -65,30 +66,7 @@ class QIRGateMetadata(Enum):
     SZdg = Sdg  # Mapped to itself in qeclib
 
     # Complicated gates that require decomposition, expressed as a lambda:
-    F = QG.decompose(
-        lambda f: [
-            q.SZdg(f.qargs[0]),
-            q.H(f.qargs[0]),
-        ],
-    )
-    Fdg = QG.decompose(
-        lambda fdg: [
-            q.H(fdg.qargs[0]),
-            q.SZ(fdg.qargs[0]),
-        ],
-    )
-    F4 = QG.decompose(
-        lambda f4: [
-            q.H(f4.qargs[0]),
-            q.SZdg(f4.qargs[0]),
-        ],
-    )
-    F4dg = QG.decompose(
-        lambda f4dg: [
-            q.SZ(f4dg.qargs[0]),
-            q.H(f4dg.qargs[0]),
-        ],
-    )
+
     SX = QG.decompose(
         lambda sx: [
             q.RX[np.pi / 2](sx.qargs[0]),
@@ -107,6 +85,35 @@ class QIRGateMetadata(Enum):
     SYdg = QG.decompose(
         lambda sydg: [
             q.RY[-np.pi / 2](sydg.qargs[0]),
+        ],
+    )
+
+    # https://github.com/PECOS-packages/PECOS/blob/development/crates/pecos-qsim/src/clifford_gateable.rs#L681
+    F = QG.decompose(
+        lambda f: [
+            q.SX(f.qargs[0]),
+            q.SZ(f.qargs[0]),
+        ],
+    )
+    # https://github.com/PECOS-packages/PECOS/blob/development/crates/pecos-qsim/src/clifford_gateable.rs#L715
+    Fdg = QG.decompose(
+        lambda fdg: [
+            q.SZdg(fdg.qargs[0]),
+            q.SXdg(fdg.qargs[0]),
+        ],
+    )
+    # https://github.com/PECOS-packages/PECOS/blob/development/crates/pecos-qsim/src/clifford_gateable.rs#L885
+    F4 = QG.decompose(
+        lambda f4: [
+            q.SZ(f4.qargs[0]),
+            q.SX(f4.qargs[0]),
+        ],
+    )
+    F4dg = QG.decompose(
+        lambda f4dg: [
+            q.SXdg(f4dg.qargs[0]),
+            # q.SZdg(f4dg.qargs[0]),
+            q.RZ[-np.pi / 2](f4dg.qargs[0]),
         ],
     )
 
