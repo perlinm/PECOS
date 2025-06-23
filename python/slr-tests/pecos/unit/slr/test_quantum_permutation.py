@@ -4,7 +4,7 @@ import re
 
 import pytest
 from pecos.qeclib import qubit as Q
-from pecos.slr import CReg, Main, Permute, QReg, SlrConverter
+from pecos.slr import CReg, Main, Permute, QReg, SlrConverter, Block
 from pecos.qeclib.steane.steane_class import Steane
 # QASM Tests
 
@@ -50,7 +50,6 @@ def test_permutation_with_steane():
         b.z(),  # Should become Z a[0];
         b.y(),  # Should become Y a[1];
     )
-
     qasm1 = SlrConverter(prog).qasm()
     # Check that the permutation was applied correctly
     assert "h b_d[0];" in qasm1.lower()
@@ -66,16 +65,46 @@ def test_permutation_with_steane():
             a.d,
             b.d,
         ),
+        Permute(
+            a.a,
+            b.a,
+        ),
+        # a.permute(b),
         a.mx(meas[0]),
         b.my(meas[1])
     )
-
     qasm2 = SlrConverter(prog).qasm()
     # Check that the permutation was applied correctly
     assert "ry(-pi/2) b_d[0];" in qasm2.lower()
     assert "measure b_d[0] -> a_raw_meas[0];" in qasm2.lower()
     assert "rx(-pi/2) a_d[0];" in qasm2.lower()
     assert "measure a_d[0] -> b_raw_meas[0];" in qasm2.lower()
+    
+    def my_permute(a: Steane, b: Steane):
+        block = Block(
+            Permute(a.d, b.d),
+            Permute(a.a, b.a),
+        )
+        return block
+    prog = Main(
+        a := Steane("a"),
+        b := Steane("b"),
+        meas := CReg("meas", 2),
+        my_permute(a,b),
+        a.mx(meas[0]),
+        b.my(meas[1])
+    )
+    qasm3 = SlrConverter(prog).qasm()
+    print(qasm3)
+    # Check that the permutation was applied correctly
+    assert "ry(-pi/2) b_d[0];" in qasm3.lower()
+    assert "measure b_d[0] -> a_raw_meas[0];" in qasm3.lower()
+    assert "rx(-pi/2) a_d[0];" in qasm3.lower()
+    assert "measure a_d[0] -> b_raw_meas[0];" in qasm3.lower()
+    
+
+test_permutation_with_steane()
+exit()
 
 def test_quantum_permutation_qasm(quantum_permutation_program):
     """Test permutation with quantum gates in QASM generation."""
