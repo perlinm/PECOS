@@ -4,8 +4,8 @@ import re
 
 import pytest
 from pecos.qeclib import qubit
-from pecos.slr import CReg, Main, Permute, QReg, SlrConverter
-
+from pecos.slr import CReg, Main, Permute, QReg, SlrConverter, Block
+from pecos.qeclib.steane.steane_class import Steane
 
 # QASM Tests
 
@@ -96,7 +96,6 @@ def test_permutation_with_steane():
         b.my(meas[1])
     )
     qasm3 = SlrConverter(prog).qasm()
-    print(qasm3)
     # Check that the permutation was applied correctly
     assert "ry(-pi/2) b_d[0];" in qasm3.lower()
     assert "measure b_d[0] -> a_raw_meas[0];" in qasm3.lower()
