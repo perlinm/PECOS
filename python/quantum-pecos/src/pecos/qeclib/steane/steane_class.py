@@ -31,6 +31,7 @@ from pecos.qeclib.steane.meas.destructive_meas import MeasDecode
 from pecos.qeclib.steane.preps.pauli_states import PrepRUS
 from pecos.qeclib.steane.preps.t_plus_state import (
     PrepEncodeTPlusFTRUS,
+    PrepEncodeTPlusFTRUS_8cx,
     PrepEncodeTPlusNonFT,
 )
 from pecos.qeclib.steane.qec.qec_3parallel import ParallelFlagQECActiveCorrection
@@ -52,6 +53,7 @@ class Steane(Vars):
         name: str,
         default_rus_limit: int = 3,
         ancillas: QReg | None = None,
+        num_ancilla: int = 3,
     ) -> None:
         """Initialize a Steane code instance with associated quantum and classical registers.
 
@@ -65,8 +67,13 @@ class Steane(Vars):
             ValueError: If provided ancilla register has fewer than 3 qubits.
         """
         super().__init__()
+        if num_ancilla == 3:
+            self.t_state_2q = 8
+        elif num_ancilla == 6:
+            self.t_state_2q = 30
+            
         self.d = QReg(f"{name}_d", 7)
-        self.a = ancillas or QReg(f"{name}_a", 3)
+        self.a = ancillas or QReg(f"{name}_a", num_ancilla)
         self.c = CReg(f"{name}_c", 32)
 
         if self.a.size < 3:
@@ -197,21 +204,38 @@ class Steane(Vars):
         rus_limit: int | None = None,
     ) -> Block:
         """Prepare logical T|+X> in a fault tolerant manner."""
-        block = Block(
-            self.scratch.set(0),
-            PrepEncodeTPlusFTRUS(
-                d=self.d,
-                a=self.a,
-                out=self.scratch,
-                reject=self.scratch[2],  # the first two bits are used by "out"
-                flag_x=self.flag_x,
-                flag_z=self.flag_z,
-                flags=self.flags,
-                last_raw_syn_x=self.last_raw_syn_x,
-                last_raw_syn_z=self.last_raw_syn_z,
-                limit=rus_limit or self.default_rus_limit,
-            ),
-        )
+        if self.t_state_2q == 30:
+            block = Block(
+                self.scratch.set(0),
+                PrepEncodeTPlusFTRUS(
+                    d=self.d,
+                    a=self.a,
+                    out=self.scratch,
+                    reject=self.scratch[2],  # the first two bits are used by "out"
+                    flag_x=self.flag_x,
+                    flag_z=self.flag_z,
+                    flags=self.flags,
+                    last_raw_syn_x=self.last_raw_syn_x,
+                    last_raw_syn_z=self.last_raw_syn_z,
+                    limit=rus_limit or self.default_rus_limit,
+                ),
+            )
+        elif self.t_state_2q == 8:
+            block = Block(
+                self.scratch.set(0),
+                PrepEncodeTPlusFTRUS_8cx(
+                    d=self.d,
+                    a=self.a,
+                    out=self.scratch,
+                    reject=self.scratch[2],  # the first two bits are used by "out"
+                    flag_x=self.flag_x,
+                    flag_z=self.flag_z,
+                    flags=self.flags,
+                    last_raw_syn_x=self.last_raw_syn_x,
+                    last_raw_syn_z=self.last_raw_syn_z,
+                    limit=rus_limit or self.default_rus_limit,
+                ),
+            )
         if twirl_bit is not None:
             block.extend(Comment("=========== Begin Twirled SX ==========="))
             block.extend(
@@ -303,6 +327,14 @@ class Steane(Vars):
         """Adjoint of sqrt of X."""
         return sqrt_paulis.SXdg(self.d)
 
+    def apply_sixsyn(self) -> Block:
+        '''Measure the stabilizers'''
+        from pecos.qeclib.steane.syn_extract.six_check_nonflagging import SixUnflaggedSyn
+        return Block(
+            Comment('Measuring six stabilizers'),
+            SixUnflaggedSyn(self.d, self.a, self.syn_x, self.syn_z),
+        )
+
     def sy(self) -> Block:
         """Sqrt of Y."""
         return sqrt_paulis.SY(self.d)
@@ -323,6 +355,7 @@ class Steane(Vars):
         """T gate via teleportation using non-fault-tolerant initialization of the T|+> state."""
         return Block(
             aux.nonft_prep_t_plus_state(twirl_bit=twirl_bit),
+            Comment('To add X error here'),
             self.cx(aux),
             aux.mz(self.t_meas),
             If(self.t_meas == 1).Then(self.sz()),
@@ -334,6 +367,7 @@ class Steane(Vars):
             # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
             aux.prep_t_plus_state(reject=reject, twirl_bit=twirl_bit, rus_limit=rus_limit),
             # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
+            Comment('To add X error here'),
             self.cx(aux),
             aux.mz(self.t_meas),
             If(self.t_meas == 1).Then(self.sz()),  # SZ/S correction.
@@ -391,7 +425,9 @@ class Steane(Vars):
         warn("Using experimental feature: nonft_t_tel", stacklevel=2)
         return Block(
             aux.nonft_prep_t_plus_state(twirl_bit=twirl_bit),
+            Comment('To add X error here'),
             aux.cx(self),
+            Comment('Start measuring in t_tel'),
             self.mz(self.t_meas),
             If(self.t_meas == 1).Then(aux.x(), aux.sz()),
             self.permute(aux),
@@ -418,6 +454,7 @@ class Steane(Vars):
             # Comment('Start TODEFORM'),
             aux.prep_t_plus_state(reject=reject, twirl_bit=twirl_bit, rus_limit=rus_limit),
             # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
+            Comment('To add X error here'),
             aux.cx(self),
             # Comment('End TODEFORM'),
             self.mz(self.t_meas),
@@ -485,6 +522,7 @@ class Steane(Vars):
         block = Block(
             # gate teleportation without logical correction
             aux.nonft_prep_t_plus_state(twirl_bit=twirl_bit),
+            Comment('To add X error here'),
             self.cx(aux),
             aux.mz(self.t_meas),
             # active error correction
@@ -526,6 +564,7 @@ class Steane(Vars):
             # gate teleportation without logical correction
             # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
             aux.prep_t_plus_state(reject=reject, twirl_bit=twirl_bit, rus_limit=rus_limit),
+            Comment('To add X error here'),
             # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
             self.cx(aux),
             # Comment('END TODEFORM'),
@@ -550,6 +589,100 @@ class Steane(Vars):
         if flag is not None:
             block.extend(If(self.syn_z != 0).Then(flag.set(1)))
         return block
+    
+    def nonft_t_tel_cor(
+        self,
+        aux: Steane,
+        reject: Bit | None = None,
+        twirl_bit: CReg | None = None,
+        rus_limit: int | None = None,
+    ):
+        """Warning:
+            This is experimental.dsxew';[xszdp;
+
+        T gate via teleportation using fault-tolerant initialization of the T|+> state.
+
+        This version teleports the logical qubit from the original qubit to the auxiliary logical qubit. For
+        convenience, the qubits are relabeled, so you can continue to use the original Steane code logical qubit.
+        """
+        warn("Using experimental feature: t_tel", stacklevel=2)
+        return Block(
+            # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            # Comment('Start TODEFORM'),
+            # aux.prep_t_plus_state(reject=reject, twirl_bit=twirl_bit, rus_limit=rus_limit),
+            aux.nonft_prep_t_plus_state(twirl_bit=twirl_bit),
+            # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
+            Comment('To add X error here'),
+            aux.cx(self),
+            # Comment('End TODEFORM'),
+            Comment('Start measuring in t_tel_cor'),
+            self.mz(self.t_meas),
+            
+            aux.syn_z.set(self.syn_meas),
+            aux.last_raw_syn_z.set(0),
+            aux.pf_x.set(0),
+
+            Comment('Start active correction in t_tel_cor'),
+            FlagLookupQASMActiveCorrectionZ(
+                aux.d,
+                aux.syn_z,
+                aux.syn_z,
+                aux.last_raw_syn_z,
+                aux.pf_x,
+                aux.syn_z,
+                aux.syn_z,
+                aux.scratch,
+            ),
+            
+            If(self.t_meas == 1).Then(aux.x(), aux.sz()),  # SZ/S correction.
+            self.permute(aux),
+            # Permute(self.d, aux.d),  # denoted as qpermute
+        )
+
+    def t_tel_cor(
+        self,
+        aux: Steane,
+        reject: Bit | None = None,
+        twirl_bit: CReg | None = None,
+        rus_limit: int | None = None,
+    ):
+        """Warning:
+            This is experimental.dsxew';[xszdp;
+
+        T gate via teleportation using fault-tolerant initialization of the T|+> state.
+
+        This version teleports the logical qubit from the original qubit to the auxiliary logical qubit. For
+        convenience, the qubits are relabeled, so you can continue to use the original Steane code logical qubit.
+        """
+        warn("Using experimental feature: t_tel", stacklevel=2)
+        return Block(
+            # aux.prep_t_plus_state(reject=reject, rus_limit=rus_limit),
+            # Comment('Start TODEFORM'),
+            aux.prep_t_plus_state(reject=reject, twirl_bit=twirl_bit, rus_limit=rus_limit),
+            # aux.prep_twirled_t_plus_state(reject=reject, rus_limit=rus_limit),
+            Comment('To add X error here'),
+            aux.cx(self),
+            # Comment('End TODEFORM'),
+            self.mz(self.t_meas),
+            
+            aux.syn_z.set(self.syn_meas),
+            aux.last_raw_syn_z.set(0),
+            aux.pf_x.set(0),
+            FlagLookupQASMActiveCorrectionZ(
+                aux.d,
+                aux.syn_z,
+                aux.syn_z,
+                aux.last_raw_syn_z,
+                aux.pf_x,
+                aux.syn_z,
+                aux.syn_z,
+                aux.scratch,
+            ),
+            
+            If(self.t_meas == 1).Then(aux.x(), aux.sz()),  # SZ/S correction.
+            self.permute(aux),
+            # Permute(self.d, aux.d),  # denoted as qpermute
+        )
     
     def deform_t_cor(
         self,

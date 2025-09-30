@@ -18,7 +18,7 @@ essential for implementing non-Clifford gates in fault-tolerant quantum computat
 from pecos.qeclib import qubit
 from pecos.qeclib.steane.gates_sq.face_rots import F
 from pecos.qeclib.steane.preps.encoding_circ import EncodingCircuit
-from pecos.qeclib.steane.preps.plus_h_state import PrepHStateFT, PrepHStateFTRUS
+from pecos.qeclib.steane.preps.plus_h_state import PrepHStateFT, PrepHStateFTRUS, PrepHStateFTRUS_8cx
 from pecos.slr import Bit, Block, Comment, CReg, QReg
 
 
@@ -130,7 +130,7 @@ class PrepEncodeTPlusFTRUS(Block):
     def __init__(
         self,
         d: QReg,
-        a: QReg,
+        a: QReg, 
         out: CReg,
         reject: Bit,
         flag_x: CReg,
@@ -158,6 +158,65 @@ class PrepEncodeTPlusFTRUS(Block):
         # NOTE: For QASM, have to avoid nested If statements
         super().__init__(
             PrepHStateFTRUS(
+                d,
+                a,
+                out,
+                reject,
+                flag_x,
+                flag_z,
+                flags,
+                last_raw_syn_x,
+                last_raw_syn_z,
+                limit,
+            ),
+            F(d),
+        )
+
+class PrepEncodeTPlusFTRUS_8cx(Block):
+    """Initialize a T|+> state fault tolerantly using repeat-until-success.
+
+    By measuring the logical Hadamard using Repeat-until-success style
+    initialization.
+
+    Arguments:
+        d: Data qubits (size 7)
+        a: Axillary qubits (size 2)
+        out: Measurement outputs (size 2). out[0] is the Measure H result and out[1] is the flag result.
+        limit: The number of RUS steps to take.
+        reject: Whether the procedure failed and should be rejected. 0 it is good, 1 prep failed.
+    """
+
+    def __init__(
+        self,
+        d: QReg,
+        a: QReg, 
+        out: CReg,
+        reject: Bit,
+        flag_x: CReg,
+        flag_z: CReg,
+        flags: CReg,
+        last_raw_syn_x: CReg,
+        last_raw_syn_z: CReg,
+        limit: int,
+    ) -> None:
+        """Initialize PrepEncodeTPlusFTRUS block for repeat-until-success T|+> preparation.
+
+        Args:
+            d: Data qubits (size 7) for the Steane code.
+            a: Ancillary qubits (size 2) for measurements.
+            out: Measurement outputs (size 2). out[0] is the Hadamard measurement,
+                out[1] is the flag result.
+            reject: Bit indicating preparation failure (0 for success, 1 for failure).
+            flag_x: Classical register for X stabilizer flags.
+            flag_z: Classical register for Z stabilizer flags.
+            flags: Combined flags register.
+            last_raw_syn_x: Previous X syndrome measurements.
+            last_raw_syn_z: Previous Z syndrome measurements.
+            limit: Maximum number of preparation attempts.
+        """
+        # NOTE: For QASM, have to avoid nested If statements
+        super().__init__(
+            PrepHStateFTRUS_8cx(
                 d,
                 a,
                 out,

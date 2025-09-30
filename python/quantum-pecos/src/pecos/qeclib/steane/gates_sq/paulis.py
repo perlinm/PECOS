@@ -129,4 +129,4 @@ class Sx(Block):
             qubit.X(q[0]),
             Comment("End applying stabilizer X"),
         )
-    
+

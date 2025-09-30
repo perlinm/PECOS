@@ -17,8 +17,8 @@ and fault propagation simulators.
 # specific language governing permissions and limitations under the License.
 
 # Rust version of stabilizer sim
-from pecos_rslib import SparseSimRs, StateVecRs
-from pecos_rslib import SparseSimRs as SparseSim
+# from pecos_rslib import SparseSimRs, StateVecRs
+# from pecos_rslib import SparseSimRs as SparseSim
 
 from pecos.simulators import sim_class_types
 from pecos.simulators.basic_sv.state import BasicSV  # Basic numpy statevector simulator

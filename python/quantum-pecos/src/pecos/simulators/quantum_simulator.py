@@ -21,8 +21,8 @@ from __future__ import annotations
 from typing import Any
 
 from pecos.reps.pypmir.op_types import QOp
-from pecos.simulators import StateVecRs
-from pecos.simulators.sparsesim.state import SparseSim
+#from pecos.simulators import StateVecRs
+#from pecos.simulators.sparsesim.state import SparseSim
 
 JSONType = dict[str, Any] | list[Any] | str | int | float | bool | None
 
@@ -93,8 +93,8 @@ class QuantumSimulator:
                     self.state = Qulacs
                 else:
                     self.state = StateVecRs
-            elif "ProjectQSim":
-                self.state = ProjectQSim
+            # elif "ProjectQSim":
+            #     self.state = ProjectQSim
             elif self.backend in {"MPS", "mps"}:
                 self.state = MPS
             elif self.backend == "Qulacs":

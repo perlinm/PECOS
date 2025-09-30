@@ -53,7 +53,7 @@ def test_permutation_with_steane():
     )
     qasm1 = SlrConverter(prog).qasm()
     # Check that the permutation was applied correctly
-    assert "h b_d[0];" in qasm1.lower()
+    assert "h b_d[4];" in qasm1.lower()
     assert "x b_d[4];" in qasm1.lower()
     assert "z a_d[4];" in qasm1.lower()
     assert "y a_d[4];" in qasm1.lower()
@@ -102,6 +102,74 @@ def test_permutation_with_steane():
     assert "rx(-pi/2) a_d[0];" in qasm3.lower()
     assert "measure a_d[0] -> b_raw_meas[0];" in qasm3.lower()
     
+    prog = Main(
+        a := Steane("a"),
+        b := Steane("b"),
+        meas := CReg("meas", 2),
+        a.permute(b),
+        a.mx(meas[0]),
+        # b.my(meas[1])
+    )
+    qasm4 = SlrConverter(prog).qasm()
+    # Check that the permutation was applied correctly
+    assert "ry(-pi/2) b_d[0];" in qasm4.lower()
+    assert "measure b_d[0] -> a_raw_meas[0];" in qasm4.lower()
+    # assert "rx(-pi/2) a_d[0];" in qasm4.lower()
+    # assert "measure a_d[0] -> b_raw_meas[0];" in qasm4.lower()
+    
+    ############################## 
+    prog = Main(
+        a := Steane("a", default_rus_limit=1, num_ancilla=6),
+        b := Steane("b", num_ancilla=6),
+        meas := CReg("meas", 1),
+        a.px(),
+    )
+    for ii in range(1):
+        prog.extend(
+            a.t(b, rus_limit=1),
+            a.permute(b)
+        )
+    prog.extend(
+        a.h(),  # Should become H b[0];
+        a.x(),  # Should become X b[1];
+        b.z(),  # Should become Z a[0];
+        b.y(),  # Should become Y a[1];
+        a.mx(meas[0]),
+    )
+    qasm5 = SlrConverter(prog).qasm()
+    assert "h b_d[4];" in qasm5.lower()
+    assert "x b_d[4];" in qasm5.lower()
+    assert "z a_d[4];" in qasm5.lower()
+    assert "y a_d[4];" in qasm5.lower()
+    assert "ry(-pi/2) b_d[0];" in qasm5.lower()
+    assert "measure b_d[0] -> a_raw_meas[0];" in qasm5.lower()
+    
+    ##############################
+    prog = Main(
+        a := Steane("a", default_rus_limit=1, num_ancilla=6),
+        b := Steane("b", num_ancilla=6),
+        meas := CReg("meas", 1),
+        a.px(),
+    )
+    for ii in range(1):
+        prog.extend(
+            a.t_tel(b, rus_limit=1),
+        )
+    prog.extend(
+        a.h(),  # Should become H b[0];
+        a.x(),  # Should become X b[1];
+        b.z(),  # Should become Z a[0];
+        b.y(),  # Should become Y a[1];
+        a.mx(meas[0]),
+    )
+    qasm6 = SlrConverter(prog).qasm()
+    assert "h b_d[4];" in qasm6.lower()
+    assert "x b_d[4];" in qasm6.lower()
+    assert "z a_d[4];" in qasm6.lower()
+    assert "y a_d[4];" in qasm6.lower()
+    assert "ry(-pi/2) b_d[0];" in qasm6.lower()
+    assert "measure b_d[0] -> a_raw_meas[0];" in qasm6.lower()
+     
 
 test_permutation_with_steane()
 exit()

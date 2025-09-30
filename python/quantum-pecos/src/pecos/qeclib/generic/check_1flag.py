@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 from typing import TYPE_CHECKING
 
-from pecos.qeclib.qubit import CH, CX, CY, CZ, H, Measure, Prep
+from pecos.qeclib.qubit import CH, CX, CY, CZ, H, RY, Measure, Prep
 from pecos.slr import Barrier, Block, Comment
 
 if TYPE_CHECKING:
