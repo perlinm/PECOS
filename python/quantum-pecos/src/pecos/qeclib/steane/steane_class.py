@@ -28,7 +28,7 @@ from pecos.qeclib.steane.gates_sq import paulis, sqrt_paulis
 from pecos.qeclib.steane.gates_sq.hadamards import H
 from pecos.qeclib.steane.gates_tq import transversal_tq
 from pecos.qeclib.steane.meas.destructive_meas import MeasDecode
-from pecos.qeclib.steane.preps.pauli_states import PrepRUS
+from pecos.qeclib.steane.preps.pauli_states import PrepRUS, PrepRUS_fullqed
 from pecos.qeclib.steane.preps.t_plus_state import (
     PrepEncodeTPlusFTRUS,
     PrepEncodeTPlusFTRUS_8cx,
@@ -54,6 +54,7 @@ class Steane(Vars):
         default_rus_limit: int = 3,
         ancillas: QReg | None = None,
         num_ancilla: int = 3,
+        fullqed: bool = False
     ) -> None:
         """Initialize a Steane code instance with associated quantum and classical registers.
 
@@ -71,6 +72,8 @@ class Steane(Vars):
             self.t_state_2q = 8
         elif num_ancilla == 6:
             self.t_state_2q = 30
+        
+        self.fullqed = fullqed
             
         self.d = QReg(f"{name}_d", 7)
         self.a = ancillas or QReg(f"{name}_a", num_ancilla)
@@ -139,43 +142,61 @@ class Steane(Vars):
         state: str,
         reject: Bit | None = None,
         rus_limit: int | None = None,
+        fullqed: bool | None = None,
     ) -> Block:
         """Prepare a logical qubit in a logical Pauli basis state."""
-        block = PrepRUS(
+        
+        if fullqed:
+            block = PrepRUS_fullqed(
+                q=self.d,
+                a=self.a,
+                reject=reject,
+                limit=rus_limit or self.default_rus_limit,
+                state=state,
+                flag_x=self.flag_x,
+                flag_z=self.flag_z,
+                flags=self.flags,
+                last_raw_syn_x=self.last_raw_syn_x,
+                last_raw_syn_z=self.last_raw_syn_z,
+                first_round_reset=True,
+            )
+        else:
+            block = PrepRUS(
             q=self.d,
             a=self.a[0],
             init=self.verify_prep[0],
             limit=rus_limit or self.default_rus_limit,
             state=state,
             first_round_reset=True,
-        )
-        if reject is not None:
-            block.extend(reject.set(self.verify_prep[0]))
+            )
+            if reject is not None:
+                block.extend(reject.set(self.verify_prep[0]))
+        
         return block
 
-    def px(self, reject: Bit | None = None, rus_limit: int | None = None) -> Block:
+    def px(self, reject: Bit | None = None, rus_limit: int | None = None, fullqed: bool | None = None) -> Block:
         """Prepare logical |+X>, a.k.a. |+>."""
-        return self.p("+X", reject=reject, rus_limit=rus_limit)
+        return self.p("+X", reject=reject, rus_limit=rus_limit, fullqed=fullqed)
 
-    def pnx(self, reject: Bit | None = None, rus_limit: int | None = None) -> Block:
+    def pnx(self, reject: Bit | None = None, rus_limit: int | None = None, fullqed: bool | None = None) -> Block:
         """Prepare logical |-X>, a.k.a. |->."""
-        return self.p("-X", reject=reject, rus_limit=rus_limit)
+        return self.p("-X", reject=reject, rus_limit=rus_limit, fullqed=fullqed)
 
-    def py(self, reject: Bit | None = None, rus_limit: int | None = None) -> Block:
+    def py(self, reject: Bit | None = None, rus_limit: int | None = None, fullqed: bool | None = None) -> Block:
         """Prepare logical |+Y>, a.k.a. |+i>."""
-        return self.p("+Y", reject=reject, rus_limit=rus_limit)
+        return self.p("+Y", reject=reject, rus_limit=rus_limit, fullqed=fullqed)
 
-    def pny(self, reject: Bit | None = None, rus_limit: int | None = None) -> Block:
+    def pny(self, reject: Bit | None = None, rus_limit: int | None = None, fullqed: bool | None = None) -> Block:
         """Prepare logical |-Y>, a.k.a. |-i>."""
-        return self.p("-Y", reject=reject, rus_limit=rus_limit)
+        return self.p("-Y", reject=reject, rus_limit=rus_limit, fullqed=fullqed)
 
-    def pz(self, reject: Bit | None = None, rus_limit: int | None = None) -> Block:
+    def pz(self, reject: Bit | None = None, rus_limit: int | None = None, fullqed: bool | None = None) -> Block:
         """Prepare logical |+Z>, a.k.a. |0>."""
-        return self.p("+Z", reject=reject, rus_limit=rus_limit)
+        return self.p("+Z", reject=reject, rus_limit=rus_limit, fullqed=fullqed)
 
-    def pnz(self, reject: Bit | None = None, rus_limit: int | None = None) -> Block:
+    def pnz(self, reject: Bit | None = None, rus_limit: int | None = None, fullqed: bool | None = None) -> Block:
         """Prepare logical |-Z>, a.k.a. |1>."""
-        return self.p("-Z", reject=reject, rus_limit=rus_limit)
+        return self.p("-Z", reject=reject, rus_limit=rus_limit, fullqed=fullqed)
     
 
     def nonft_prep_t_plus_state(self, twirl_bit: CReg | None = None):
@@ -221,6 +242,22 @@ class Steane(Vars):
                 ),
             )
         elif self.t_state_2q == 8:
+            block = Block(
+                self.scratch.set(0),
+                PrepEncodeTPlusFTRUS_8cx(
+                    d=self.d,
+                    a=self.a,
+                    out=self.scratch,
+                    reject=self.scratch[2],  # the first two bits are used by "out"
+                    flag_x=self.flag_x,
+                    flag_z=self.flag_z,
+                    flags=self.flags,
+                    last_raw_syn_x=self.last_raw_syn_x,
+                    last_raw_syn_z=self.last_raw_syn_z,
+                    limit=rus_limit or self.default_rus_limit,
+                ),
+            )
+        elif self.t_state_2q == 'no_very':
             block = Block(
                 self.scratch.set(0),
                 PrepEncodeTPlusFTRUS_8cx(
@@ -879,22 +916,22 @@ class Steane(Vars):
         """Run a Steane-type error-correction cycle for X errors."""
         warn("Using experimental feature: qec_steane_x", stacklevel=2)
         block = Block(
-            aux.px(reject=reject, rus_limit=rus_limit),
+            aux.px(reject=reject, rus_limit=rus_limit, fullqed=aux.fullqed),
             self.cx(aux),
             aux.mz(),
             self.syn_z.set(aux.syn_meas),
             self.last_raw_syn_z.set(0),
             self.pf_x.set(0),
-            FlagLookupQASMActiveCorrectionZ(
-                self.d,
-                self.syn_z,
-                self.syn_z,
-                self.last_raw_syn_z,
-                self.pf_x,
-                self.syn_z,
-                self.syn_z,
-                self.scratch,
-            ),
+            # FlagLookupQASMActiveCorrectionZ(
+            #     self.d,
+            #     self.syn_z,
+            #     self.syn_z,
+            #     self.last_raw_syn_z,
+            #     self.pf_x,
+            #     self.syn_z,
+            #     self.syn_z,
+            #     self.scratch,
+            # ),
         )
         if flag is not None:
             block.extend(If(self.syn_z != 0).Then(flag.set(1)))
@@ -910,22 +947,22 @@ class Steane(Vars):
         """Run a Steane-type error-correction cycle for Z errors."""
         warn("Using experimental feature: qec_steane_z", stacklevel=2)
         block = Block(
-            aux.pz(reject=reject, rus_limit=rus_limit),
+            aux.pz(reject=reject, rus_limit=rus_limit, fullqed=aux.fullqed),
             aux.cx(self),
             aux.mx(),
             self.syn_x.set(aux.syn_meas),
             self.last_raw_syn_x.set(0),
             self.pf_z.set(0),
-            FlagLookupQASMActiveCorrectionX(
-                self.d,
-                self.syn_x,
-                self.syn_x,
-                self.last_raw_syn_x,
-                self.pf_z,
-                self.syn_x,
-                self.syn_x,
-                self.scratch,
-            ),
+            # FlagLookupQASMActiveCorrectionX(
+            #     self.d,
+            #     self.syn_x,
+            #     self.syn_x,
+            #     self.last_raw_syn_x,
+            #     self.pf_z,
+            #     self.syn_x,
+            #     self.syn_x,
+            #     self.scratch,
+            # ),
         )
         if flag is not None:
             block.extend(If(self.syn_x != 0).Then(flag.set(1)))
