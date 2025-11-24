@@ -881,6 +881,29 @@ class Steane(Vars):
             block.extend(If(self.flags != 0).Then(flag.set(1)))
         return block
 
+    def qec_knill(
+        self,
+        aux_x: Steane,
+        aux_z: Steane,
+        reject_x: Bit | None = None,
+        reject_z: Bit | None = None,
+        bit_x: Bit | None = None,
+        bit_z: Bit | None = None,
+        rus_limit: int | None = None,
+    ) -> Block:
+        """Run a Kill-type error-correction cycle."""
+        return Block(
+            aux_x.px(reject=reject_x, rus_limit=rus_limit),
+            aux_z.pz(reject=reject_z, rus_limit=rus_limit),
+            aux_x.cx(aux_z),
+            self.cx(aux_x),
+            self.mx(bit_x),
+            aux_x.mz(bit_z),
+            If(bit_z == 1).Then(aux_z.x()),
+            If(bit_x == 1).Then(aux_z.z()),
+            self.permute(aux_z),
+        )
+
     def qec_steane(
         self,
         aux: Steane,
